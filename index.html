@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" content="#10111a" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="application-name" content="Daybreak Player" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <title>やがて黎明を待つ | Music Player</title>
+  <style>
+    :root {
+      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      font-synthesis: none;
+      color: #fff;
+      background-color: #10111a;
+      -webkit-tap-highlight-color: transparent;
+      --accent: #38d2e5;
+      --muted: rgba(255,255,255,.68);
+      --cover-width: min(calc(100vw - 52px), calc(100dvh - 390px), 435px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; min-height: 100%; overscroll-behavior: none; }
+    body { background: #10111a; overflow: hidden; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; color: inherit; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .app { width: 100%; height: 100vh; height: 100dvh; position: relative; isolation: isolate; overflow: hidden; background: #10121b; }
+    .wash { position: absolute; inset: -80px; z-index: -2; pointer-events: none; opacity: .9; background: radial-gradient(ellipse at 52% 18%, #584264 0%, transparent 55%), radial-gradient(ellipse at 80% 70%, #34364e 0%, transparent 59%), #11121b; background-size: cover; background-position: center; filter: blur(50px) saturate(.8) brightness(.72); transition: background-image .45s ease; transform: scale(1.09); }
+    .veil { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(6,7,12,.25) 0%, rgba(9,10,17,.2) 37%, rgba(5,6,10,.59) 75%, rgba(5,6,11,.82) 100%); }
+    .statusbar { display: none; height: 27px; padding: 3px 29px 0; align-items: center; justify-content: space-between; gap: 10px; font-weight: 650; font-size: 13px; letter-spacing: .01em; }
+    .status-icons { display: inline-flex; align-items: center; gap: 7px; }
+    .status-icons svg { width: 15px; height: 15px; }
+    .battery { display:inline-block; width: 19px; height: 9px; border: 1.4px solid currentColor; border-radius: 2.5px; position: relative; }
+    .battery::before { content: ""; background: currentColor; position: absolute; right: -3.5px; top: 2px; width: 2px; height: 3px; border-radius: 0 2px 2px 0; }
+    .battery::after { content: ""; background: currentColor; position: absolute; left: 1px; top: 1px; bottom: 1px; width: 74%; border-radius: 1px; }
+    .app:fullscreen .statusbar, .app.fullscreen-fallback .statusbar { display: flex; }
+    @media (display-mode: standalone), (display-mode: fullscreen) { .statusbar { display: flex; } }
+    .screen { height: 100%; display: flex; flex-direction: column; max-width: 1200px; margin: 0 auto; min-height: 0; }
+    .app:fullscreen .screen, .app.fullscreen-fallback .screen { height: calc(100% - 27px); }
+    @media (display-mode: standalone), (display-mode: fullscreen) { .screen { height: calc(100% - 27px); } }
+    .topbar { flex: 0 0 62px; padding: 5px 19px 0; display: grid; grid-template-columns: 78px minmax(0,1fr) 78px; align-items: center; }
+    .top-title { text-align: center; line-height: 1.22; min-width: 0; }
+    .top-title span { display: block; font-size: 10px; font-weight: 550; letter-spacing: .13em; color: rgba(255,255,255,.76); }
+    .top-title strong { display: block; margin-top: 5px; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .top-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+    .icon-btn { width: 39px; height: 42px; padding: 0; border: none; background: transparent; display: inline-flex; justify-content: center; align-items: center; border-radius: 50%; transition: background .18s ease, transform .18s ease; }
+    .icon-btn:active, .transport button:active { transform: scale(.91); }
+    .icon-btn:hover { background: rgba(255,255,255,.1); }
+    svg.ico { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .player-grid { flex: 1; min-height: 0; display: flex; flex-direction: column; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+    .art-section { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 7px 22px 2px; }
+    .cover-card { width: var(--cover-width); max-height: 100%; aspect-ratio: 1 / 1; border-radius: 8px; position: relative; box-shadow: 0 26px 68px rgba(0,0,0,.32), 0 2px 12px rgba(0,0,0,.14); overflow: hidden; background: #37364b; will-change: transform,opacity; transform: translate3d(0,0,0); cursor: grab; }
+    .cover-card:active { cursor: grabbing; }
+    .cover-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .cover-image[hidden] { display: none; }
+    .cover-placeholder { width: 100%; height: 100%; position: relative; overflow: hidden; background: linear-gradient(180deg,#191b34 0%,#393854 33%,#75637b 56%,#d49b83 72%,#1e283b 73%,#0c121e 100%); }
+    .cover-placeholder.theme-night { background: linear-gradient(160deg,#061824 0%,#133454 39%,#34546b 64%,#8391a2 79%,#0b1f32 80%,#071622 100%); }
+    .cover-placeholder.theme-after { background: linear-gradient(160deg,#1b303c 0%,#517982 43%,#a9aba0 68%,#d3b8a5 79%,#405563 80%,#172c38 100%); }
+    .cover-placeholder::before { content: ""; position:absolute; width: 125%; height: 38%; left: -11%; top: 51%; background: radial-gradient(ellipse at center,rgba(255,225,210,.31),transparent 65%); filter: blur(20px); }
+    .cover-placeholder::after { content: ""; position:absolute; inset: 0; background: linear-gradient(180deg,rgba(0,0,0,.09),transparent 38%,transparent 56%,rgba(0,0,0,.42)); }
+    .horizon { position:absolute; top:72%; left:-10%; width: 120%; height:1px; background:rgba(255,221,202,.68); box-shadow: 0 0 10px 4px rgba(245,168,141,.27),0 1px 18px 9px rgba(245,168,141,.11); transform: rotate(-1deg); }
+    .orb { position:absolute; left: 55%; top: 61.5%; height: 13%; aspect-ratio:1; border-radius: 50%; background: radial-gradient(circle at 50% 70%,rgba(255,222,187,.96),rgba(249,179,147,.85) 64%,rgba(244,181,160,.1) 75%); filter: blur(2px); box-shadow: 0 0 35px 22px rgba(241,172,154,.2); }
+    .theme-night .orb { opacity: .15; }.theme-after .orb { opacity:.48; }
+    .grain { position:absolute; inset:0; opacity:.15; pointer-events:none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); mix-blend-mode:soft-light; }
+    .player-details { width: 100%; max-width: 530px; flex: 0 0 auto; margin: 0 auto; padding: 7px 25px max(13px,env(safe-area-inset-bottom)); }
+    .pills { height: 28px; display:flex; gap: 8px; align-items:center; }
+    .pill { padding: 5px 17px; border: none; border-radius: 24px; background:rgba(255,255,255,.15); color: #fff; font-size: 11px; font-weight: 650; letter-spacing:.01em; }
+    .song-header { display:flex; align-items:center; justify-content:space-between; gap: 10px; margin-top: 7px; min-width:0; }
+    .song-name { font-size: clamp(19px,5.7vw,25px); font-weight:750; letter-spacing: -.045em; line-height: 1.24; margin: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .song-artist { margin: 7px 0 0; color: rgba(255,255,255,.8); font-size: 14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .song-copy { min-width:0; flex:1; }
+    .like-btn { flex: 0 0 39px; width:39px; height:39px; border:0; background:transparent; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+    .like-btn.liked { color: var(--accent); }.like-btn.liked svg { fill: currentColor; }
+    .progress { margin-top: 20px; }
+    .seek { --pct:0%; width:100%; height: 21px; margin:0; padding:0; display:block; background:transparent; appearance:none; -webkit-appearance:none; cursor:pointer; touch-action:none; }
+    .seek::-webkit-slider-runnable-track { height: 3px; border-radius: 5px; background:linear-gradient(to right,#fff 0 var(--pct),rgba(255,255,255,.32) var(--pct) 100%); }
+    .seek::-moz-range-track { height: 3px; border-radius: 5px; background:rgba(255,255,255,.32); }
+    .seek::-moz-range-progress { height:3px; background:#fff; }
+    .seek::-webkit-slider-thumb { -webkit-appearance:none; height:15px; width:15px; border-radius:50%; background:white; margin-top:-6px; box-shadow:0 1px 5px rgba(0,0,0,.2); }
+    .seek::-moz-range-thumb { height:15px; width:15px; border:0; border-radius:50%; background:#fff; }
+    .time-line { display:flex; align-items:center; justify-content:space-between; margin-top:2px; font-size: 11px; color:rgba(255,255,255,.68); font-weight:450; font-variant-numeric: tabular-nums; }
+    .quality { font-size:11px; letter-spacing:.11em; color:rgba(255,255,255,.5); font-weight:750; }
+    .transport { display:grid; grid-template-columns:1fr 1fr 1.18fr 1fr 1fr; align-items:center; justify-items:center; margin-top: 15px; height:82px; }
+    .transport button { border:0; background:none; padding:0; width:48px; height:54px; display:flex; align-items:center; justify-content:center; transition:transform .15s ease; }
+    .transport .play-main { width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,.19); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .transport .play-main svg { width:28px; height:28px; fill:currentColor; stroke-width:1.4; }
+    .transport .main-icon svg { width:28px; height:28px; stroke-width: 2.5; fill:currentColor; }
+    .transport .minor-icon svg { width:21px; height:21px; stroke-width: 1.85; }
+    .transport button.is-active { color:var(--accent); }
+    .transport .small-mark { position:relative; }
+    .transport .small-mark::after { content:''; position:absolute; width:4px; height:4px; background:currentColor; border-radius:50%; left:calc(50% - 2px); bottom:1px; }
+    .footbar { display:flex; align-items:center; justify-content:space-between; padding: 7px 3px 0; height:53px; }
+    .footbar .icon-btn { width:42px; height:38px; }.footbar svg { width:22px; height:22px; }
+    .footbar .xray { font-size:12px; font-weight:650; letter-spacing:.03em; opacity:.88; background:transparent; border:0; padding:10px 20px; }
+    .xray span { display:block; font-size:10px; font-weight:400; line-height:1; transform:rotate(180deg); }
+    .toast { position: fixed; z-index: 100; bottom: max(30px,env(safe-area-inset-bottom)); left:50%; transform:translate(-50%,15px); opacity:0; pointer-events:none; border-radius:14px; background:rgba(35,37,49,.94); border:1px solid rgba(255,255,255,.14); padding:12px 18px; font-size:12px; line-height:1.5; text-align:center; width:max-content; max-width:min(88vw,420px); color:#fff; backdrop-filter:blur(20px); transition:opacity .2s,transform .2s; }
+    .toast.show { opacity:1; transform:translate(-50%,0); }
+    .sheet-shade { position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.61); opacity:0; pointer-events:none; transition:opacity .26s ease; }
+    .sheet-shade.open { opacity:1; pointer-events:auto; }
+    .sheet { color: #f7f7fc; position:fixed; z-index:61; bottom:0; left:50%; transform:translate(-50%,105%); width:100%; max-width:530px; max-height:min(91dvh,950px); display:flex; flex-direction:column; background:#20212b; border:1px solid rgba(255,255,255,.15); border-radius:22px 22px 0 0; box-shadow:0 -10px 50px rgba(0,0,0,.28); padding: 0 0 env(safe-area-inset-bottom); transition:transform .32s cubic-bezier(.2,.84,.25,1); }
+    .sheet.open { transform:translate(-50%,0); }
+    .sheet-head { flex:0 0 auto; padding:12px 23px 13px; border-bottom:1px solid rgba(255,255,255,.1); }
+    .sheet-grip { height:4px; width:38px; margin:0 auto 12px; border-radius:5px; background:rgba(255,255,255,.32); }
+    .sheet-title-row { display:flex; align-items:center; justify-content:space-between; }
+    .sheet h2 { font-size:17px; letter-spacing:.01em; margin:0; }
+    .sheet h3 { font-size:14px; margin:22px 0 12px; }
+    .sheet-content { overflow-y:auto; padding: 12px 23px 25px; scrollbar-width:thin; scrollbar-color:#555 transparent; }
+    .sheet-panel[hidden] { display:none; }
+    .help { font-size:12px; color:rgba(255,255,255,.62); margin:0 0 14px; line-height:1.8; }
+    .field { display:block; margin:14px 0; }
+    .field > span { display:block; font-size:11px; color:#c2c3ce; font-weight:700; margin-bottom:7px; }
+    .field input:not([type=file]), .field select { background:#30313e; border:1px solid #474854; padding:12px 12px; border-radius:10px; color:white; width:100%; font-size:15px; min-height:44px; }
+    .field input::placeholder { color:#8b8d9c; }
+    .field select { color-scheme:dark; }
+    .fieldset-split { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .upload-zone { border:1px dashed rgba(255,255,255,.34); border-radius:12px; display:flex; align-items:center; gap:13px; padding:13px 14px; cursor:pointer; min-height:68px; background:rgba(255,255,255,.03); }
+    .upload-zone .upload-icon { width:27px; height:27px; display:flex; align-items:center; justify-content:center; color:#d2d5ea; flex:0 0 auto; }
+    .upload-zone strong { font-size:13px; font-weight:650; display:block; }.upload-zone em { display:block; font-size:11px; color:rgba(255,255,255,.6); font-style:normal; margin-top:5px; line-height:1.4; }
+    .upload-zone input { display:none; }
+    .section-rule { border:0; border-top:1px solid rgba(255,255,255,.11); margin:22px 0 17px; }
+    .action-row { display:flex; flex-wrap:wrap; gap:9px; margin:12px 0; }
+    .action { background:rgba(255,255,255,.1); color:white; border:1px solid rgba(255,255,255,.15); padding:11px 13px; border-radius:10px; min-height:44px; font-size:12px; font-weight:650; }
+    .action.primary { background:var(--accent); border-color:var(--accent); color:#061019; }
+    .action:disabled { opacity:.35; cursor:not-allowed; }
+    .queue { display:flex; flex-direction:column; gap:3px; }
+    .queue-track { display:flex; align-items:center; width:100%; text-align:left; border:0; gap:13px; padding:10px 7px; background:transparent; border-radius:10px; }
+    .queue-track.selected { background:rgba(56,210,229,.09); }
+    .queue-track.active .queue-track-title { color:var(--accent); }
+    .queue-art { width:43px; height:43px; border-radius:5px; flex:0 0 auto; background:linear-gradient(150deg,#34305c,#b98076); object-fit:cover; }
+    .queue-art.theme-night { background:linear-gradient(150deg,#0a253c,#8da3b1); }.queue-art.theme-after { background:linear-gradient(150deg,#30596b,#bcb8a3); }
+    .queue-track-text { display:flex; flex-direction:column; min-width:0; flex:1; }
+    .queue-track-title { font-size:14px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.queue-track-artist { font-size:12px; color:rgba(255,255,255,.63); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .queue-track .play-indicator { width:18px; height:18px; color:var(--accent); }
+    .danger { background:transparent; border:0; padding:8px 0; color:#aaaabb; font-size:11px; text-decoration:underline; cursor:pointer; }
+    @media (max-height:760px) and (max-width:659px) {
+      :root { --cover-width:min(calc(100vw - 64px),calc(100dvh - 367px),360px); }
+      .topbar { flex-basis:52px; }
+      .player-details { padding-top:2px; }
+      .progress { margin-top:12px; }
+      .transport { margin-top:8px; height:75px; }
+      .footbar { height:46px; }
+      .art-section { padding-top:1px; }
+    }
+    @media (max-height:625px) and (max-width:659px) {
+      :root { --cover-width: min(calc(100vw - 75px),calc(100dvh - 316px)); }
+      .topbar { flex-basis:45px; }
+      .pills { height:22px; }
+      .pill { padding:4px 13px; }
+      .song-name { font-size:19px; }
+      .song-artist { margin-top:4px; }
+      .transport { height:66px; }.transport .play-main { width:60px; height:60px; }
+      .footbar { height:41px; }.progress { margin-top:6px; }
+    }
+    @media (min-width:660px) {
+      :root { --cover-width: min(43vw, 460px, calc(100dvh - 157px)); }
+      .topbar { flex-basis:73px; padding-left:24px; padding-right:24px; }
+      .player-grid { flex-direction:row; align-items:stretch; justify-content:center; gap:2.3vw; padding:0 clamp(22px,3vw,55px) 28px; }
+      .art-section { flex: 1 1 47%; padding: 12px 0; min-width:0; }
+      .player-details { flex: 1 1 50%; max-width:520px; margin:auto 0; padding:4px 0 7px; min-width:0; }
+      .song-name { font-size:clamp(20px,3vw,30px); }
+      .progress { margin-top:24px; }
+      .transport { margin-top:25px; }
+      .footbar { margin-top:14px; }
+        }
+    @media (prefers-reduced-motion:reduce) { * { transition-duration:.001s!important; animation-duration:.001s!important; } }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <div id="wash" class="wash"></div><div class="veil"></div>
+    <div id="statusBar" class="statusbar" aria-hidden="true">
+      <span id="clock">8:02</span>
+      <span class="status-icons">
+        <svg viewBox="0 0 20 20" fill="currentColor"><rect x="2" y="13" width="3" height="5" rx=".4"/><rect x="6" y="10" width="3" height="8" rx=".4"/><rect x="10" y="7" width="3" height="11" rx=".4"/><rect x="14" y="3" width="3" height="15" rx=".4"/></svg>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M2 7q8-7 16 0M5 10q5-4 10 0M8 13q2-2 4 0"/><circle cx="10" cy="16" r="1" fill="currentColor" stroke="none"/></svg>
+        <span class="battery"></span>
+      </span>
+    </div>
+    <div class="screen">
+      <header class="topbar">
+        <div><button id="collapseBtn" class="icon-btn" aria-label="撮影モードを切り替える" title="撮影モード"><svg class="ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></button></div>
+        <div class="top-title"><span>再生中</span><strong id="albumHeader">やがて黎明を待つ</strong></div>
+        <div class="top-actions">
+          <button id="castBtn" class="icon-btn" aria-label="キャスト"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17a4 4 0 0 1 4 4M3 12a9 9 0 0 1 9 9M3 7a14 14 0 0 1 14 14"/><path d="M5 3h13a3 3 0 0 1 3 3v11" /></svg></button>
+          <button id="menuBtn" class="icon-btn" aria-label="編集・設定を開く" title="設定"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg></button>
+        </div>
+      </header>
+      <main id="swipeSurface" class="player-grid" aria-label="プレイヤー。ジャケットを左右にスワイプして曲を切り替え">
+        <section class="art-section" aria-label="ジャケット（左右スワイプ可能）">
+          <div id="coverCard" class="cover-card">
+            <div id="placeholder" class="cover-placeholder">
+              <div class="orb"></div><div class="horizon"></div><div class="grain"></div>
+            </div>
+            <img id="coverImage" class="cover-image" alt="ジャケット画像" hidden />
+          </div>
+        </section>
+        <section class="player-details">
+          <div class="pills"><button id="lyricsBtn" class="pill" type="button">歌詞</button><button id="xrayPill" class="pill" type="button">X-Ray</button></div>
+          <div class="song-header">
+            <div class="song-copy"><h1 id="songName" class="song-name">やがて黎明を待つ</h1><p id="songArtist" class="song-artist">Seraf()</p></div>
+            <button id="likeBtn" class="like-btn" title="お気に入り" aria-label="お気に入り"><svg class="ico" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg></button>
+          </div>
+          <div class="progress">
+            <input id="seek" class="seek" type="range" min="0" max="226" value="0" step="1" aria-label="再生位置" />
+            <div class="time-line"><span id="elapsed">0:00</span><span class="quality">ULTRA HD</span><span id="remaining">-3:46</span></div>
+          </div>
+          <nav class="transport" aria-label="再生コントロール">
+            <button id="repeatBtn" class="minor-icon" aria-label="リピート" title="リピート"><svg class="ico" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg></button>
+            <button id="prevBtn" class="main-icon" aria-label="前の曲"><svg class="ico" viewBox="0 0 24 24"><path stroke="none" d="M4 5h3v14H4zM20 5 8 12l12 7z"/></svg></button>
+            <button id="playBtn" class="play-main" aria-label="再生"><svg id="playIcon" class="ico" viewBox="0 0 24 24"><path stroke="none" d="M8 4 20 12 8 20Z"/></svg></button>
+            <button id="nextBtn" class="main-icon" aria-label="次の曲"><svg class="ico" viewBox="0 0 24 24"><path stroke="none" d="M20 5h-3v14h3zM4 5l12 7-12 7z"/></svg></button>
+            <button id="shuffleBtn" class="minor-icon" aria-label="シャッフル" title="シャッフル"><svg class="ico" viewBox="0 0 24 24"><path d="M3 17h3c5 0 7-10 12-10h3M17 3l4 4-4 4M3 7h3c1.7 0 3 .8 4 2M14 15c1.1 1.2 2.3 2 4 2h3M17 13l4 4-4 4"/></svg></button>
+          </nav>
+          <div class="footbar">
+            <button id="queueBtn" class="icon-btn" aria-label="再生キュー"><svg class="ico" viewBox="0 0 24 24"><path d="M3 6h16M3 11h16M3 16h10M18 15v7m-4-3.5h8"/></svg></button>
+            <button id="xrayFooter" class="xray">✦ X-Ray <span>⌃</span></button>
+            <button id="fullscreenBtn" class="icon-btn" aria-label="全画面にする"><svg class="ico" viewBox="0 0 24 24"><path d="M8 3H4a1 1 0 0 0-1 1v4M16 3h4a1 1 0 0 1 1 1v4M8 21H4a1 1 0 0 1-1-1v-4M16 21h4a1 1 0 0 0 1-1v-4"/></svg></button>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <div id="shade" class="sheet-shade"></div>
+  <aside id="sheet" class="sheet" role="dialog" aria-modal="true" aria-label="プレイヤーの設定" aria-hidden="true">
+    <div class="sheet-head"><div class="sheet-grip"></div><div class="sheet-title-row"><h2 id="sheetTitle">撮影・曲の設定</h2><button id="closeSheetBtn" class="icon-btn" aria-label="閉じる"><svg class="ico" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div></div>
+    <div class="sheet-content">
+      <div id="settingsPanel" class="sheet-panel">
+        <p class="help">ここで変更した曲名やジャケットは、この端末のブラウザに保存されます。右上の「⋮」からいつでも再編集できます。</p>
+        <div class="field"><span>編集する曲</span><select id="editTrackSelect"></select></div>
+        <div class="field"><span>曲名</span><input id="editTitle" maxlength="90" placeholder="曲名" autocomplete="off" /></div>
+        <div class="field"><span>アーティスト名</span><input id="editArtist" maxlength="80" placeholder="アーティスト" autocomplete="off" /></div>
+        <div class="field"><span>アルバム / 再生リスト名</span><input id="editAlbum" maxlength="90" placeholder="再生リスト名" autocomplete="off" /></div>
+        <div class="fieldset-split">
+          <div class="field"><span>曲の長さ（分:秒）</span><input id="editDuration" inputmode="text" maxlength="6" placeholder="3:46" /></div>
+          <div class="field"><span>再生開始位置（分:秒）</span><input id="editStart" inputmode="text" maxlength="6" placeholder="0:00" /></div>
+        </div>
+        <div class="field"><span>ジャケット画像（後から差し替え可能）</span>
+          <label class="upload-zone" for="coverFile"><span class="upload-icon"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.4"/><path d="m3 17 5-5 4 4 4-5 5 6"/></svg></span><span><strong id="coverFileLabel">画像を選ぶ</strong><em>JPG / PNG / WebP。画像は画面に即時反映されます。</em></span><input id="coverFile" type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" /></label>
+          <button id="removeCoverBtn" class="danger" type="button">ジャケットを初期デザインに戻す</button>
+        </div>
+        <div class="field"><span>音源（任意）</span>
+          <label class="upload-zone" for="audioFile"><span class="upload-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13M9 8l12-2"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><span><strong id="audioFileLabel">音源ファイルを選ぶ</strong><em>音源なしでもプログレスバーは進みます（無音の撮影用）。</em></span><input id="audioFile" type="file" accept="audio/*" /></label>
+          <button id="removeAudioBtn" class="danger" type="button">音源の登録を解除する</button>
+        </div>
+        <hr class="section-rule" />
+        <h3>撮影操作</h3>
+        <div class="action-row"><button id="prepareBtn" class="action primary" type="button">1曲前から撮影</button><button id="targetBtn" class="action" type="button">「やがて黎明を待つ」に移動</button><button id="fullSettingsBtn" class="action" type="button">全画面にする</button></div>
+        <p class="help">画面を左にスワイプ → 次の曲、右にスワイプ → 前の曲。全画面にするとブラウザのアドレスバーが映りません。曲名・ジャケットはこの画面で自由に変更できます。</p>
+        <hr class="section-rule" />
+        <h3>再生キュー（曲をタップすると編集対象を変更）</h3>
+        <div id="settingsQueue" class="queue"></div>
+        <div style="margin-top:20px"><button id="resetBtn" class="danger" type="button">曲情報を初期状態に戻す（ジャケット・音源は維持）</button></div>
+      </div>
+      <div id="queuePanel" class="sheet-panel" hidden>
+        <p class="help">再生する曲を選んでください。撮影用に3曲を用意しています。</p>
+        <div id="mainQueue" class="queue"></div>
+        <div class="action-row" style="margin-top:22px"><button id="openSettingsBtn" class="action" type="button">曲名・ジャケットを編集</button></div>
+      </div>
+    </div>
+  </aside>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+  (() => {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+    const PREFS_KEY = 'daybreak-player-settings-v2';
+    const baseTracks = [
+      { id:'before', title:'夜の輪郭', artist:'Seraf()', album:'やがて黎明を待つ', duration:195, start:0, theme:'night', liked:false },
+      { id:'main', title:'やがて黎明を待つ', artist:'Seraf()', album:'やがて黎明を待つ', duration:226, start:0, theme:'dawn', liked:true },
+      { id:'after', title:'朝の残響', artist:'Seraf()', album:'やがて黎明を待つ', duration:201, start:0, theme:'after', liked:false },
+    ];
+    const safeStorage = { get(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }, set(key,val) { try { localStorage.setItem(key,val); } catch (_) {} }, remove(key) { try { localStorage.removeItem(key); } catch (_) {} } };
+    function loadTracks() {
+      try {
+        const data = JSON.parse(safeStorage.get(PREFS_KEY));
+        if (!Array.isArray(data) || data.length !== baseTracks.length) return structuredClone(baseTracks);
+        return baseTracks.map((t,i) => {
+          const d = data.find(x=>x && x.id===t.id) || {};
+          return { ...t,
+            title: typeof d.title==='string' ? d.title.slice(0,90) : t.title,
+            artist: typeof d.artist==='string' ? d.artist.slice(0,80) : t.artist,
+            album: typeof d.album==='string' ? d.album.slice(0,90) : t.album,
+            duration: Number.isFinite(d.duration) && d.duration > 0 ? Math.min(d.duration,35999) : t.duration,
+            start: Number.isFinite(d.start) && d.start >= 0 ? Math.min(d.start,35999) : t.start,
+            liked: typeof d.liked==='boolean'?d.liked:t.liked
+          };
+        });
+      } catch (_) { return structuredClone(baseTracks); }
+    }
+    let tracks = loadTracks();
+    let index = 1, editIndex = 1, elapsed = Math.min(tracks[1].start,tracks[1].duration), playing = false;
+    let repeat = false, shuffle = false, navigating = false, isSeeking = false;
+    let lastTick = performance.now(), currentPanel = 'settings', toastTimer;
+    const coverUrls = new Map(), audioUrls = new Map();
+    const audio = new Audio(); audio.preload = 'metadata';
+    function saveTracks() { safeStorage.set(PREFS_KEY,JSON.stringify(tracks)); }
+    function fmt(time) { const n = Math.max(0,Math.floor(Number(time)||0)); return Math.floor(n/60)+':'+String(n%60).padStart(2,'0'); }
+    function parseTime(str) { const m=String(str).trim().match(/^(\d{1,3}):([0-5]\d)$/); return m ? Number(m[1])*60+Number(m[2]) : null; }
+    function showToast(message) { const t=$('toast'); t.textContent=message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2800); }
+    const pauseSVG = '<path stroke="none" d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+    const playSVG = '<path stroke="none" d="M8 4 20 12 8 20Z"/>';
+    function renderProgress() {
+      const t=tracks[index]; const duration=Math.max(1,t.duration);
+      elapsed=Math.min(Math.max(elapsed,0),duration);
+      const seek=$('seek'); if (!isSeeking) seek.value=String(elapsed);
+      seek.max=String(duration); seek.style.setProperty('--pct',(elapsed/duration*100).toFixed(2)+'%');
+      $('elapsed').textContent=fmt(elapsed); $('remaining').textContent='-'+fmt(duration-elapsed);
+    }
+    function updateBackground(t) {
+      const url=coverUrls.get(t.id), wash=$('wash');
+      if (url) {
+        wash.style.backgroundImage=`linear-gradient(180deg,rgba(6,8,14,.3),rgba(11,9,19,.58)),url("${url}")`;
+      } else {
+        const bg=t.theme==='night'?'radial-gradient(ellipse at 47% 27%,#355872,transparent 61%),radial-gradient(ellipse at 50% 78%,#14253f,transparent 60%),#0b1827':t.theme==='after'?'radial-gradient(ellipse at 50% 26%,#759096,transparent 58%),radial-gradient(ellipse at 60% 78%,#4c5a5c,transparent 61%),#1b3037':'radial-gradient(ellipse at 50% 26%,#816981,transparent 60%),radial-gradient(ellipse at 55% 80%,#594459,transparent 62%),#1d1d31';
+        wash.style.backgroundImage=bg;
+      }
+    }
+    function renderPlayer() {
+      const t=tracks[index], url=coverUrls.get(t.id);
+      $('albumHeader').textContent=t.album||'マイミュージック';
+      $('songName').textContent=t.title||'曲名未設定'; $('songArtist').textContent=t.artist||'アーティスト';
+      $('placeholder').className='cover-placeholder'+(t.theme==='night'?' theme-night':t.theme==='after'?' theme-after':'');
+      $('coverImage').hidden=!url;
+      if (url) $('coverImage').src=url; else $('coverImage').removeAttribute('src');
+      $('likeBtn').classList.toggle('liked',!!t.liked);
+      $('playIcon').innerHTML=playing?pauseSVG:playSVG;
+      $('playBtn').setAttribute('aria-label',playing?'一時停止':'再生');
+      $('repeatBtn').classList.toggle('is-active',repeat);
+      $('repeatBtn').classList.toggle('small-mark',repeat);
+      $('shuffleBtn').classList.toggle('is-active',shuffle);
+      $('shuffleBtn').classList.toggle('small-mark',shuffle);
+      updateBackground(t); renderProgress();
+    }
+    function pauseAudio() { audio.pause(); }
+    function syncAudioSource() {
+      const src=audioUrls.get(tracks[index].id);
+      if (src) {
+        if (audio.src!==src) { audio.src=src; audio.load(); }
+        try { if (Math.abs((audio.currentTime||0)-elapsed)>1) audio.currentTime=elapsed; } catch (_) {}
+      } else { audio.pause(); audio.removeAttribute('src'); audio.load(); }
+    }
+    function startPlaying() {
+      playing=true; syncAudioSource();
+      if (audioUrls.has(tracks[index].id)) {
+        const promise=audio.play();
+        if (promise && promise.catch) promise.catch(()=>{playing=false;renderPlayer();showToast('音源の再生が許可されませんでした。再生ボタンを押してください。');});
+      }
+      lastTick=performance.now(); renderPlayer();
+    }
+    function togglePlaying() { if (playing) {playing=false;pauseAudio();renderPlayer();} else startPlaying(); }
+    function commitTrack(newIndex) {
+      if (newIndex<0 || newIndex>=tracks.length) return;
+      const wasPlaying=playing;
+      pauseAudio(); index=newIndex; elapsed=Math.min(tracks[index].start,tracks[index].duration);
+      syncAudioSource(); renderPlayer();
+      if (wasPlaying) startPlaying();
+    }
+    function chooseNext(dir) {
+      if (shuffle && dir>0) {
+        const options=tracks.map((_,i)=>i).filter(i=>i!==index);
+        return options[Math.floor(Math.random()*options.length)] ?? index;
+      }
+      const n=index+dir; if (n<0) return repeat?tracks.length-1:0;
+      if (n>=tracks.length) return repeat?0:tracks.length-1;
+      return n;
+    }
+    function resetDrag() { $('coverCard').style.transition='transform .23s cubic-bezier(.2,.8,.2,1),opacity .23s ease'; $('coverCard').style.transform='translate3d(0,0,0) rotate(0deg)'; $('coverCard').style.opacity='1'; setTimeout(()=>{$('coverCard').style.transition='';},250); }
+    function switchTo(n,dir=1) {
+      if (n===index || navigating) { resetDrag(); return; }
+      navigating=true;
+      const c=$('coverCard');
+      const off=dir>0?-Math.max(window.innerWidth*.8,320):Math.max(window.innerWidth*.8,320);
+      c.style.transition='transform .17s ease-in,opacity .17s ease-in';
+      c.style.transform=`translate3d(${off}px,0,0) rotate(${dir>0?-7:7}deg)`;
+      c.style.opacity='.18';
+      setTimeout(()=>{
+        commitTrack(n); c.style.transition='none'; c.style.transform=`translate3d(${-off*.36}px,0,0) rotate(${dir>0?2.5:-2.5}deg)`; c.style.opacity='.28';
+        void c.offsetHeight;
+        c.style.transition='transform .29s cubic-bezier(.14,.79,.28,1),opacity .29s ease-out';
+        c.style.transform='translate3d(0,0,0) rotate(0deg)'; c.style.opacity='1';
+        setTimeout(()=>{navigating=false;c.style.transition='';},300);
+      },170);
+    }
+    function next() { const n=chooseNext(1); if(n===index) { showToast('最後の曲です');return; } switchTo(n,1); }
+    function prev() { if(elapsed>3) { elapsed=0; if(audioUrls.has(tracks[index].id)) {try{audio.currentTime=0;}catch(_){}} renderProgress(); return; } const n=chooseNext(-1); if(n===index){elapsed=0;renderProgress();return;} switchTo(n,-1); }
+    function setupGestures() {
+      const surface=$('swipeSurface'),card=$('coverCard'); let drag=null;
+      surface.addEventListener('pointerdown',e=>{
+        if (navigating || e.button>0 || e.target.closest('button,input,select,label')) return;
+        drag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,dy:0,moved:false};
+        try { surface.setPointerCapture(e.pointerId); } catch(_) {}
+      });
+      surface.addEventListener('pointermove',e=>{
+        if (!drag || drag.id!==e.pointerId) return;
+        drag.dx=e.clientX-drag.x;drag.dy=e.clientY-drag.y;
+        if(Math.abs(drag.dx)<7 || Math.abs(drag.dx)<Math.abs(drag.dy))return;
+        drag.moved=true;
+        const damped=drag.dx*.87;
+        card.style.transition='none';card.style.transform=`translate3d(${damped}px,0,0) rotate(${Math.max(-7,Math.min(7,damped*.012))}deg)`;
+      });
+      const release=e=>{
+        if (!drag || drag.id!==e.pointerId) return;
+        const {dx,dy,moved}=drag;drag=null;
+        try { surface.releasePointerCapture(e.pointerId); } catch(_) {}
+        if(moved && Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)*1.2) {
+          const dir=dx<0?1:-1; const n=chooseNext(dir);
+          if(n===index) { resetDrag(); showToast(dir>0?'最後の曲です':'最初の曲です'); }
+          else switchTo(n,dir);
+        } else resetDrag();
+      };
+      surface.addEventListener('pointerup',release);surface.addEventListener('pointercancel',release);
+    }
+    function tick(now) {
+      const delta=Math.min(1,(now-lastTick)/1000);lastTick=now;
+      if(playing && !isSeeking) {
+        if(audioUrls.has(tracks[index].id)) {
+          if(!audio.paused && Number.isFinite(audio.currentTime)) elapsed=audio.currentTime;
+        } else {elapsed+=delta;}
+        if(elapsed>=tracks[index].duration) {
+          if(repeat && tracks.length===1) {elapsed=0;}
+          else if(index<tracks.length-1 || repeat) switchTo(chooseNext(1),1);
+          else {playing=false;elapsed=tracks[index].duration;renderPlayer();}
+        }
+        renderProgress();
+      }
+      requestAnimationFrame(tick);
+    }
+    async function openDB() {
+      return new Promise((resolve,reject)=>{
+        if(!('indexedDB'in window))return reject(new Error('indexedDB unavailable'));
+        const req=indexedDB.open('daybreak-player-assets',1);
+        req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('files'))req.result.createObjectStore('files');};
+        req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+      });
+    }
+    let dbPromise;
+    function db() { if(!dbPromise)dbPromise=openDB();return dbPromise; }
+    async function assetSet(key,value) {
+      const database=await db();
+      return new Promise((resolve,reject)=>{const tx=database.transaction('files','readwrite');tx.objectStore('files').put(value,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);});
+    }
+    async function assetGet(key) {
+      const database=await db();
+      return new Promise((resolve,reject)=>{const req=database.transaction('files','readonly').objectStore('files').get(key);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});
+    }
+    async function assetDelete(key) {
+      const database=await db();
+      return new Promise((resolve,reject)=>{const tx=database.transaction('files','readwrite');tx.objectStore('files').delete(key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+    }
+    function changeUrl(map,key,file) {const prev=map.get(key);if(prev)URL.revokeObjectURL(prev);if(file)map.set(key,URL.createObjectURL(file));else map.delete(key);}
+    async function hydrate() {
+      for(const t of tracks) {
+        try {
+          const cover=await assetGet('cover:'+t.id); if(cover instanceof Blob)changeUrl(coverUrls,t.id,cover);
+          const sound=await assetGet('audio:'+t.id); if(sound instanceof Blob)changeUrl(audioUrls,t.id,sound);
+        } catch (_) { break; }
+      }
+      renderPlayer();refreshQueue();refreshFileLabels();
+    }
+    async function saveFile(kind,file) {
+      if(!file)return;
+      const t=tracks[editIndex];
+      if(kind==='cover' && !file.type.startsWith('image/')) {showToast('画像ファイルを選んでください');return;}
+      if(kind==='audio' && !file.type.startsWith('audio/') && !/\.(mp3|m4a|wav|aac|flac|ogg)$/i.test(file.name)) {showToast('音声ファイルを選んでください');return;}
+      changeUrl(kind==='cover'?coverUrls:audioUrls,t.id,file);
+      if(kind==='audio' && index===editIndex) syncAudioSource();
+      renderPlayer();refreshQueue();refreshFileLabels();
+      try { await assetSet(kind+':'+t.id,file);showToast(kind==='cover'?'ジャケットを保存しました':'音源を保存しました'); }
+      catch(_) {showToast('画面には反映しました。永続保存にはHTTPSでの公開を推奨します');}
+    }
+    async function removeFile(kind) {
+      const t=tracks[editIndex];changeUrl(kind==='cover'?coverUrls:audioUrls,t.id,null);
+      if(kind==='audio' && editIndex===index)syncAudioSource();
+      renderPlayer();refreshQueue();refreshFileLabels();
+      try {await assetDelete(kind+':'+t.id);}catch(_){}
+      showToast(kind==='cover'?'初期ジャケットに戻しました':'音源を解除しました');
+    }
+    function refreshFileLabels() {
+      const t=tracks[editIndex];
+      $('coverFileLabel').textContent=coverUrls.has(t.id)?'保存済みのジャケットを差し替える':'画像を選ぶ';
+      $('audioFileLabel').textContent=audioUrls.has(t.id)?'保存済みの音源を差し替える':'音源ファイルを選ぶ';
+      $('removeCoverBtn').hidden=!coverUrls.has(t.id);$('removeAudioBtn').hidden=!audioUrls.has(t.id);
+    }
+    function populateTrackFields() {
+      const t=tracks[editIndex];
+      $('editTrackSelect').value=String(editIndex);
+      $('editTitle').value=t.title;$('editArtist').value=t.artist;$('editAlbum').value=t.album;
+      $('editDuration').value=fmt(t.duration);$('editStart').value=fmt(t.start);
+      refreshFileLabels();refreshQueue();
+    }
+    function bindTextInput(id,key) {
+      $(id).addEventListener('input',e=>{tracks[editIndex][key]=e.target.value;saveTracks();if(editIndex===index)renderPlayer();refreshQueue();refreshTrackSelect();});
+    }
+    function refreshTrackSelect() {
+      const select=$('editTrackSelect');const selected=select.value;
+      select.innerHTML='';tracks.forEach((t,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=`${i+1}. ${t.title||'曲名未設定'}`;select.append(option);});
+      select.value=selected||String(editIndex);
+    }
+    function createQueueItem(t,i,mode) {
+      const button=document.createElement('button');button.type='button';button.className='queue-track'+(i===index?' active':'')+(mode==='edit'&&i===editIndex?' selected':'');
+      const art=coverUrls.get(t.id);
+      if(art) {const img=document.createElement('img');img.src=art;img.alt='';img.className='queue-art';button.append(img);}
+      else {const div=document.createElement('div');div.className='queue-art'+(t.theme==='night'?' theme-night':t.theme==='after'?' theme-after':'');button.append(div);}
+      const content=document.createElement('span');content.className='queue-track-text';
+      const title=document.createElement('span');title.className='queue-track-title';title.textContent=t.title||'曲名未設定';
+      const artist=document.createElement('span');artist.className='queue-track-artist';artist.textContent=t.artist||'アーティスト';
+      content.append(title,artist);button.append(content);
+      if(i===index) {const symbol=document.createElement('span');symbol.className='play-indicator';symbol.textContent='♫';button.append(symbol);}
+      button.addEventListener('click',()=>{
+        if(mode==='edit'){editIndex=i;populateTrackFields();}
+        else{commitTrack(i);closeSheet();}
+      });
+      return button;
+    }
+    function refreshQueue() {
+      $('settingsQueue').replaceChildren(...tracks.map((t,i)=>createQueueItem(t,i,'edit')));
+      $('mainQueue').replaceChildren(...tracks.map((t,i)=>createQueueItem(t,i,'play')));
+    }
+    function selectPanel(panel) {
+      currentPanel=panel;
+      $('sheetTitle').textContent=panel==='settings'?'撮影・曲の設定':'再生キュー';
+      $('settingsPanel').hidden=panel!=='settings';$('queuePanel').hidden=panel!=='queue';
+      if(panel==='settings'){refreshTrackSelect();populateTrackFields();}else refreshQueue();
+    }
+    function openSheet(panel='settings') {selectPanel(panel);$('shade').classList.add('open');$('sheet').classList.add('open');$('sheet').setAttribute('aria-hidden','false');}
+    function closeSheet() {$('shade').classList.remove('open');$('sheet').classList.remove('open');$('sheet').setAttribute('aria-hidden','true');}
+    async function toggleFullscreen() {
+      closeSheet();
+      try {
+        if(document.fullscreenElement)await document.exitFullscreen();
+        else if($('app').requestFullscreen)await $('app').requestFullscreen({navigationUI:'hide'});
+        else showToast('Chromeの「ホーム画面に追加」で全画面表示できます');
+      } catch (_) {showToast('全画面にできない場合は、ホーム画面に追加して開いてください');}
+    }
+    function syncClock() {const date=new Date();$('clock').textContent=date.getHours()+':'+String(date.getMinutes()).padStart(2,'0');}
+    function initialize() {
+      refreshTrackSelect();populateTrackFields();renderPlayer();setupGestures();
+      $('menuBtn').addEventListener('click',()=>openSheet('settings'));
+      $('queueBtn').addEventListener('click',()=>openSheet('queue'));
+      $('closeSheetBtn').addEventListener('click',closeSheet);$('shade').addEventListener('click',closeSheet);
+      $('openSettingsBtn').addEventListener('click',()=>selectPanel('settings'));
+      $('playBtn').addEventListener('click',togglePlaying);
+      $('nextBtn').addEventListener('click',next);$('prevBtn').addEventListener('click',prev);
+      $('likeBtn').addEventListener('click',()=>{tracks[index].liked=!tracks[index].liked;saveTracks();renderPlayer();});
+      $('repeatBtn').addEventListener('click',()=>{repeat=!repeat;renderPlayer();showToast(repeat?'リピート ON':'リピート OFF');});
+      $('shuffleBtn').addEventListener('click',()=>{shuffle=!shuffle;renderPlayer();showToast(shuffle?'シャッフル ON':'シャッフル OFF');});
+      $('seek').addEventListener('pointerdown',()=>{isSeeking=true;});
+      $('seek').addEventListener('input',e=>{elapsed=Number(e.target.value);renderProgress();});
+      const finalizeSeek=()=>{isSeeking=false; if(audioUrls.has(tracks[index].id)){try{audio.currentTime=elapsed;}catch(_){}}};
+      $('seek').addEventListener('change',finalizeSeek);$('seek').addEventListener('pointerup',finalizeSeek);$('seek').addEventListener('pointercancel',finalizeSeek);
+      $('castBtn').addEventListener('click',()=>showToast('撮影用プレイヤーのためキャスト機能はありません'));
+      $('lyricsBtn').addEventListener('click',()=>showToast('歌詞表示は未設定です'));
+      $('xrayPill').addEventListener('click',()=>showToast('X-Rayは撮影用の表示です'));
+      $('xrayFooter').addEventListener('click',()=>showToast('X-Rayは撮影用の表示です'));
+      $('fullscreenBtn').addEventListener('click',toggleFullscreen);$('collapseBtn').addEventListener('click',toggleFullscreen);
+      $('fullSettingsBtn').addEventListener('click',toggleFullscreen);
+      $('prepareBtn').addEventListener('click',()=>{playing=false;pauseAudio();commitTrack(0);closeSheet();showToast('左にスワイプすると「やがて黎明を待つ」に切り替わります');});
+      $('targetBtn').addEventListener('click',()=>{playing=false;pauseAudio();commitTrack(1);closeSheet();});
+      $('editTrackSelect').addEventListener('change',e=>{editIndex=Number(e.target.value);populateTrackFields();});
+      bindTextInput('editTitle','title');bindTextInput('editArtist','artist');bindTextInput('editAlbum','album');
+      $('editDuration').addEventListener('change',e=>{const v=parseTime(e.target.value);if(v===null || v===0) {showToast('曲の長さは「3:46」の形式で入力してください');e.target.value=fmt(tracks[editIndex].duration);return;}tracks[editIndex].duration=v;tracks[editIndex].start=Math.min(tracks[editIndex].start,v);saveTracks();if(editIndex===index)renderProgress();populateTrackFields();});
+      $('editStart').addEventListener('change',e=>{const v=parseTime(e.target.value);if(v===null){showToast('開始位置は「0:30」の形式で入力してください');e.target.value=fmt(tracks[editIndex].start);return;}tracks[editIndex].start=Math.min(v,tracks[editIndex].duration);saveTracks();if(editIndex===index){elapsed=tracks[index].start;if(audioUrls.has(tracks[index].id)){try{audio.currentTime=elapsed;}catch(_){}}renderProgress();}populateTrackFields();});
+      $('coverFile').addEventListener('change',e=>{saveFile('cover',e.target.files?.[0]);e.target.value='';});
+      $('audioFile').addEventListener('change',e=>{saveFile('audio',e.target.files?.[0]);e.target.value='';});
+      $('removeCoverBtn').addEventListener('click',()=>removeFile('cover'));
+      $('removeAudioBtn').addEventListener('click',()=>removeFile('audio'));
+      $('resetBtn').addEventListener('click',()=>{if(!confirm('曲名・アーティスト名・再生時間を初期状態に戻しますか？（アップロード画像・音源は残ります）'))return;tracks=structuredClone(baseTracks);saveTracks();editIndex=1;index=1;elapsed=0;playing=false;pauseAudio();syncAudioSource();refreshTrackSelect();populateTrackFields();renderPlayer();showToast('曲情報を初期状態に戻しました');});
+      document.addEventListener('fullscreenchange',()=>{$('app').classList.toggle('fullscreen-fallback',!!document.fullscreenElement);});
+      document.addEventListener('keydown',e=>{
+        if(e.key==='Escape'){closeSheet();return;}
+        if($('sheet').classList.contains('open')||e.target.matches('input,select'))return;
+        if(e.key==='ArrowRight'){e.preventDefault();next();}
+        else if(e.key==='ArrowLeft'){e.preventDefault();prev();}
+        else if(e.key===' '){e.preventDefault();togglePlaying();}
+        else if(e.key.toLowerCase()==='f'){e.preventDefault();toggleFullscreen();}
+      });
+      audio.addEventListener('loadedmetadata',()=>{const t=tracks[index];if(audioUrls.has(t.id)&&Number.isFinite(audio.duration)&&audio.duration>0) {t.duration=Math.ceil(audio.duration);saveTracks();try{audio.currentTime=Math.min(elapsed,t.duration-.01);}catch(_){} renderProgress();}});
+      audio.addEventListener('ended',()=>{if(index<tracks.length-1||repeat)next();else{playing=false;elapsed=tracks[index].duration;renderPlayer();}});
+      audio.addEventListener('error',()=>{if(audioUrls.has(tracks[index].id))showToast('この音声形式はブラウザで再生できません');});
+      syncClock();setInterval(syncClock,15000);
+      hydrate();requestAnimationFrame(tick);
+      if(location.protocol==='https:'&&'serviceWorker'in navigator)navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+    }
+    initialize();
+  })();
+  </script>
+</body>
+</html>

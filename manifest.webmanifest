@@ -1,0 +1,25 @@
+{
+  "name": "やがて黎明を待つ - Daybreak Player",
+  "short_name": "Daybreak",
+  "description": "撮影用ミュージックプレイヤー",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#10111a",
+  "theme_color": "#10111a",
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
